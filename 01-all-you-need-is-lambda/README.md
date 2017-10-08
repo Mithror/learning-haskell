@@ -1,0 +1,1 @@
+The answers to Chapter 1 exercises are available in the book.
