@@ -36,3 +36,16 @@ bar x = pi * (x * x)
 x = 7
 y = 18
 f = x + y
+
+-- 2.11 Chpater Exercises
+-- 4
+waxOn = x * 5
+  where z = 7
+        x = y ^ 2
+        y = z + 8
+
+-- 5
+triple x = x * 3
+
+-- 6
+waxOff x = triple x
