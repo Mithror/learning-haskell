@@ -1,0 +1,48 @@
+name:                morse
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/githubuser/morse#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Gaël Depreeuw
+maintainer:          example@example.com
+copyright:           2017 Gaël Depreeuw
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Morse
+  hs-source-dirs:      src
+  ghc-options:         -Wall -fwarn-tabs
+  build-depends:       base >= 4.7 && < 5
+                     , containers
+                     , QuickCheck
+  default-language:    Haskell2010
+
+executable morse
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  ghc-options:         -Wall -fwarn-tabs
+  build-depends:       base >=4.7 && <5
+                     , morse
+                     , containers
+                     , QuickCheck
+  default-language:    Haskell2010
+
+test-suite tests
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             tests.hs
+  build-depends:       base
+                     , containers
+                     , morse
+                     , QuickCheck
+  ghc-options:         -Wall -fno-warn-orphans
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/morse
