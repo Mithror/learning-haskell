@@ -12,7 +12,7 @@ import Network.URI (URI, parseURI)
 import qualified System.Random as SR
 import Web.Scotty
 
-import Control.Monad.Reader (ReaderT(..), runReaderT, ask, lift)
+import Control.Monad.Reader (ReaderT(..), runReaderT, ask, lift, mapReaderT)
 
 alphaNum :: String
 alphaNum = ['A'..'Z'] ++ ['0'..'9']
@@ -79,12 +79,26 @@ shortyFound :: TL.Text -> TL.Text
 shortyFound tbs =
   TL.concat ["<a href=\"", tbs, "\">", tbs, "</a>"]
 
+mySave :: String -> IO (Either R.Reply R.Status) -> ActionM ()
+mySave shawty respIO = do
+  resp <- lift respIO
+  html (shortyCreated resp shawty)
+
+myGet :: IO (Either R.Reply (Maybe BC.ByteString)) -> ActionM ()
+myGet respIO = do
+  uri <- lift respIO
+  case uri of
+    Left reply -> text (TL.pack (show reply))
+    Right mbBS -> case mbBS of
+      Nothing -> text "uri not found"
+      Just bs -> html (shortyFound tbs)
+        where tbs :: TL.Text
+              tbs = TL.fromStrict (decodeUtf8 bs)
+
 app :: ReaderT R.Connection ScottyM ()
-app =  do
-  rConn <- ask
-  lift $ do 
-    get "/" $ do
-      uri <- param "uri"
+app = do
+    mapReaderT (get "/") $ do
+      uri <- lift $ param "uri"
       let parsedUri :: Maybe URI
           parsedUri = parseURI (TL.unpack uri)
       case parsedUri of
@@ -92,19 +106,38 @@ app =  do
           shawty <- liftIO shortyGen
           let shorty = BC.pack shawty
               uri' = encodeUtf8 (TL.toStrict uri)
-          resp <- liftIO (saveURI rConn shorty uri')
-          html (shortyCreated resp shawty)
-        Nothing -> text (shortyAintUri uri)
-    get "/:short" $ do
-      short <- param "short"
-      uri <- liftIO (getURI rConn short)
-      case uri of
-        Left reply -> text (TL.pack (show reply))
-        Right mbBS -> case mbBS of
-          Nothing -> text "uri not found"
-          Just bs -> html (shortyFound tbs)
-            where tbs :: TL.Text
-                  tbs = TL.fromStrict (decodeUtf8 bs)
+          mapReaderT (mySave shawty) $ saveURI' shorty uri'
+        Nothing -> lift $ text (shortyAintUri uri)
+    mapReaderT (get "/:short") $ do
+      short <- lift $ param "short"
+      mapReaderT myGet $ getURI' short
+
+-- app :: ReaderT R.Connection ScottyM ()
+-- app =  do
+--   rConn <- ask
+--   lift $ do
+--     get "/" $ do
+--       uri <- param "uri"
+--       let parsedUri :: Maybe URI
+--           parsedUri = parseURI (TL.unpack uri)
+--       case parsedUri of
+--         Just _  -> do
+--           shawty <- liftIO shortyGen
+--           let shorty = BC.pack shawty
+--               uri' = encodeUtf8 (TL.toStrict uri)
+--           resp <- liftIO (saveURI rConn shorty uri')
+--           html (shortyCreated resp shawty)
+--         Nothing -> text (shortyAintUri uri)
+--     get "/:short" $ do
+--       short <- param "short"
+--       uri <- liftIO (getURI rConn short)
+--       case uri of
+--         Left reply -> text (TL.pack (show reply))
+--         Right mbBS -> case mbBS of
+--           Nothing -> text "uri not found"
+--           Just bs -> html (shortyFound tbs)
+--             where tbs :: TL.Text
+--                   tbs = TL.fromStrict (decodeUtf8 bs)
 
 main :: IO ()
 main = do
