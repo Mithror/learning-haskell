@@ -4,7 +4,6 @@ import Test.QuickCheck
 import Test.QuickCheck.Checkers
 import Test.QuickCheck.Classes
 
--- import Control.Monad (join)
 import Control.Applicative (liftA2)
 
 -- 1
@@ -74,9 +73,7 @@ instance Monoid (List a) where
     mappend Nil l = l
     mappend (Cons a l) l' = Cons a (mappend l l')
 instance Applicative List where
-    {-# INLINE pure #-}
     pure = flip Cons Nil
-    {-# INLINE (<*>) #-}
     Nil <*> _ = Nil
     _ <*> Nil = Nil
     (Cons f fl) <*> as = (fmap f as) `mappend` (fl <*> as)
@@ -85,44 +82,22 @@ instance Monad List where
     Nil >>= _ = Nil
     (Cons a l) >>= k = (k a) `mappend` (l >>= k)
 
-    -- I originally had the above, because I thought that you could not
-    -- use join, but I found a solution online that uses join. Trying to
-    -- understand: 
-    -- join is defined as (join x = x >>= id)
-    -- You might think, wait a minute? id is (a -> a) and thus doesn't fit the
-    -- bill of (a -> m b), but let's look at things more closely
-    --
-    -- (>>=) :: m a -> (a -> m b) -> m b
-    -- a here is the type of x :: (m a')
-    -- b here is the inner type of x :: a', 
-    -- updating gives us:
-    -- (>>=) :: m (m a') -> (m a' -> m a') -> m a'
-    -- and we see that we can pass the id function to it
-
-    -- This turns the >>= definition into a recursive one where the second time
-    -- the function is the id, which will join it all
-    
-    -- unfortunately this crashes when testing the monad laws ... Why?
-    -- because this never ends... You get
-    -- fmap id (fmap id (... (fmap id (fmap f as))))
-    -- as >>= f = join $ fmap f as
-    
--- toList :: [a] -> List a
--- toList [] = Nil
--- toList (x:xs) = Cons x $ toList xs
-
+-- The following is needed to get an Arbitrary for the List. I got the idea
+-- from looking at how it is done for []. It's not very efficient though.
 replicateM' :: Applicative m => Int -> m a -> m (List a)
 replicateM' cnt0 f = loop cnt0
     where loop cnt
                 | cnt <= 0 = pure Nil
                 | otherwise = liftA2 Cons f (loop (cnt - 1))
-  
+
 listOf' :: Gen a -> Gen (List a)
 listOf' gen = sized $ \n ->
     do k <- choose (0,n)
        replicateM' k gen
 
-
+-- toList :: [a] -> List a
+-- toList [] = Nil
+-- toList (x:xs) = Cons x $ toList xs
 instance Arbitrary a => Arbitrary (List a) where
     arbitrary = listOf' arbitrary
     -- arbitrary = fmap toList (listOf arbitrary)

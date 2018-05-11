@@ -44,11 +44,11 @@ main = do
 -- We can't just do
 -- m >>= (f >>= g) because f is not of type (Monoid m => m b)
 -- We want to pass an m to an h
--- m >>= h 
+-- m >>= h
 -- where h is to be determined, we know it is of form (Monoid m => a -> m b)
 -- and it should be based on f >>= g, this doesn't work, but we could apply
 -- f to an `a` and provide that to the:
 -- h x = f x >>= g
--- This is can be done via anonymous function: 
+-- This is can be done via anonymous function:
 -- m >>= (\x -> f x >>= g)
 -- join (fmap (\x -> join (fmap g (f x))) m)

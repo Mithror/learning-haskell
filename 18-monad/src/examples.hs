@@ -1,6 +1,7 @@
 module Examples where
 
 import Control.Monad (join)
+import Control.Applicative (liftA3)
 
 twiceWhenEven :: [Integer] -> [Integer]
 twiceWhenEven xs = do
@@ -28,7 +29,7 @@ noEmpty s = Just s
 noNegative :: Int -> Maybe Int
 noNegative n | n >= 0 = Just n
              | otherwise = Nothing
-            
+
 weightCheck :: Cow -> Maybe Cow
 weightCheck c =
     let w = weight c
@@ -90,7 +91,7 @@ mkSphericalCow''' name' age' weight' =
 -- (fmap :: (String -> Maybe Cow) -> Maybe String -> Maybe (Maybe Cow))
 -- Using join, reduces this to jsut a Maybe Cow, this gives us the
 -- Maybe Cow
-                        
+
 -- mkSphericalCow''' :: String -> Int -> Int -> Maybe Cow
 -- mkSphericalCow''' name' age' weight' = z name' age' weight'
 --     where z :: String -> Int -> Int -> Maybe Cow
@@ -120,5 +121,7 @@ doSomething' n = do
     pure (a, b, c)
 
 doSomething'' :: Integer -> Maybe (Integer, Integer, String)
-doSomething'' n =
-    (pure g) <*> (f n)
+doSomething'' n = liftA3 (,,) a b c
+    where a = f n
+          b = join $ pure g <*> a -- need join here...
+          c = join $ pure h <*> b -- need join here...
