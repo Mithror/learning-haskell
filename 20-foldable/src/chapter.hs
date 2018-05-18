@@ -10,7 +10,7 @@ data Constant a b = Constant b deriving (Eq, Show)
 instance Foldable (Constant a) where
     foldr f z (Constant b) = f b z
     foldMap f (Constant b) = f b
--- 1' Mistake in book, probably meant:
+-- 1' Mistake in book as (1) is just Identity with shadow a, probably meant:
 data Constant' a b = Constant' a deriving (Eq, Show)
 instance Foldable (Constant' a) where
     foldr _ z _ = z
@@ -47,4 +47,4 @@ filterF f = foldr (\a b -> if f a then pure a `mappend` b else b) mempty
 
 filterF' :: (Applicative f, Foldable t, Monoid (f a))
         => (a -> Bool) -> t a -> f a
-filterF' f = foldMap (\a -> if f a then pure a else mempty) 
+filterF' f = foldMap (\a -> if f a then pure a else mempty)
