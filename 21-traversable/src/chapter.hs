@@ -78,7 +78,7 @@ instance Foldable (Three a b) where
     foldMap f (Three _ _ c) = f c
 instance Traversable (Three a b) where
     traverse f (Three a b c) = Three a b <$> f c
-instance (Arbitrary a, Arbitrary b, Arbitrary c) => 
+instance (Arbitrary a, Arbitrary b, Arbitrary c) =>
          Arbitrary (Three a b c) where
             arbitrary = Three <$> arbitrary <*> arbitrary <*> arbitrary
 instance (Eq a, Eq b, Eq c) => EqProp (Three a b c) where (=-=) = eq
@@ -124,14 +124,14 @@ data S n a = S (n a) a deriving (Eq, Show)
 instance Functor n => Functor (S n) where
     fmap f (S n a) = S (fmap f n) (f a)
 instance Foldable n => Foldable (S n) where
-    foldMap f (S n a) = foldMap f n <> f a 
+    foldMap f (S n a) = foldMap f n <> f a
 instance Traversable n => Traversable (S n) where
     traverse f (S n a) = S <$> traverse f n <*> f a
 instance (Functor n, Arbitrary (n a), Arbitrary a) => Arbitrary (S n a) where
     arbitrary = S <$> arbitrary <*> arbitrary
 -- The EqProp instance from the book fails. No idea why, the logic seems
 -- sound?
--- instance (Applicative n, Testable (n Property), EqProp a) => 
+-- instance (Applicative n, Testable (n Property), EqProp a) =>
 --          EqProp (S n a) where
 --     (S x y) =-= (S p q) = (property $ (=-=) <$> x <*> p) .&. (y =-= q)
 instance (Eq (n a), Eq a) => EqProp (S n a) where (=-=) = eq
@@ -153,7 +153,7 @@ instance Foldable Tree where
 instance Traversable Tree where
     traverse _ Empty = pure Empty
     traverse f (Leaf a) = Leaf <$> f a
-    traverse f (Node t a t') = 
+    traverse f (Node t a t') =
         Node <$> (traverse f t) <*> f a <*> traverse f t'
 -- probably not the best distribution for a tree.
 -- Should probably have it have a certain depth similar to []
@@ -169,7 +169,7 @@ instance (Eq a) => EqProp (Tree a) where (=-=) = eq
 
 -- fmap :: Functor f => (a -> b) -> f a -> f b
 -- foldMap :: (Monoid m, Foldable t) => (a -> m) -> t a -> m
--- foldr :: Foldable t => (a -> b -> b) -> b -> t a -> b 
+-- foldr :: Foldable t => (a -> b -> b) -> b -> t a -> b
 -- traverse :: (Traversable t, Applicative f) => (a -> f b) -> t a -> f (t b)
 
 main :: IO ()
