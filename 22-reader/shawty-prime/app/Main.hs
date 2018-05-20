@@ -29,29 +29,20 @@ shortyGen :: IO String
 shortyGen =
   replicateM 7 (randomElement alphaNum)
 
-saveURI :: R.Connection
-        -> BC.ByteString
-        -> BC.ByteString
-        -> IO (Either R.Reply R.Status)
-saveURI conn shortURI uri =
-  R.runRedis conn $ R.set shortURI uri
-
--- No idea how to use this now...
-saveURI' :: BC.ByteString 
-        -> BC.ByteString 
-        -> ReaderT R.Connection IO (Either R.Reply R.Status)
+saveURI' :: BC.ByteString
+         -> BC.ByteString
+         -> ReaderT R.Connection IO (Either R.Reply R.Status)
 saveURI' shortURI uri = do
   conn <- ask
-  liftIO $ R.runRedis conn $ R.set shortURI uri
+  -- conn :: R.Connection
+  -- R.set shortURI uri :: R.RedisCtx m f => m (f R.Status)
+  -- R.runRedis conn $ R.set shortURI uri :: IO (Either R.Reply R.Status)
+  -- either liftIO or lift should work:
+  -- liftIO $ R.runRedis conn $ R.set shortURI uri
+  lift $ R.runRedis conn $ R.set shortURI uri
 
-getURI  :: R.Connection
-        -> BC.ByteString
-        -> IO (Either R.Reply (Maybe BC.ByteString))
-getURI conn shortURI = R.runRedis conn $ R.get shortURI
-
--- No idea how to use this now...
 getURI' :: BC.ByteString
-       -> ReaderT R.Connection IO (Either R.Reply (Maybe BC.ByteString))
+        -> ReaderT R.Connection IO (Either R.Reply (Maybe BC.ByteString))
 getURI' shortURI = do
   conn <- ask
   liftIO $ R.runRedis conn $ R.get shortURI
@@ -97,53 +88,41 @@ myGet respIO = do
 
 app :: ReaderT R.Connection ScottyM ()
 app = do
+    -- get "/" :: ActionM () -> ScottyM ()
+    -- We need this to be a ReaderT R.Connection ScottyM ()
+    -- mapReaderT :: (m a -> n b) -> ReaderT r m a -> ReaderT r n b
+    -- Just what we need!
     mapReaderT (get "/") $ do
+      -- We are in the ReaderT R.Connection ActionM () monad
+      -- param "uri" :: Parsable a => ActionM a
+      -- which we lift into the ReaderT R.Connection
+      -- lift :: m a -> t m a (t here is ReaderT R.Connection)
       uri <- lift $ param "uri"
       let parsedUri :: Maybe URI
           parsedUri = parseURI (TL.unpack uri)
       case parsedUri of
         Just _  -> do
+          -- shortyGen :: IO String
+          -- needs to be made into ReaderT R.Connection ActionM a
+          -- liftIO :: MonadIO m => IO a -> m a
+          -- ReaderT R.Connection ActionM is an MonadIO, so we're good
           shawty <- liftIO shortyGen
           let shorty = BC.pack shawty
               uri' = encodeUtf8 (TL.toStrict uri)
+          -- mySave shawty :: IO (Either R.reply R.status) -> ActionM ()
+          --we need to map that into the ReaderT using mapReaderT again
+          -- which gives us a
+          -- ReaderT R.Connection IO (Either R.Reply R.Status) ->
+          --   ReaderT R.Connection ActionM ()
           mapReaderT (mySave shawty) $ saveURI' shorty uri'
+          -- text (shortyAintUri uri) :: ActionM () , so we lift this into
+          -- ReaderT R.Connection
         Nothing -> lift $ text (shortyAintUri uri)
     mapReaderT (get "/:short") $ do
       short <- lift $ param "short"
       mapReaderT myGet $ getURI' short
 
--- app :: ReaderT R.Connection ScottyM ()
--- app =  do
---   rConn <- ask
---   lift $ do
---     get "/" $ do
---       uri <- param "uri"
---       let parsedUri :: Maybe URI
---           parsedUri = parseURI (TL.unpack uri)
---       case parsedUri of
---         Just _  -> do
---           shawty <- liftIO shortyGen
---           let shorty = BC.pack shawty
---               uri' = encodeUtf8 (TL.toStrict uri)
---           resp <- liftIO (saveURI rConn shorty uri')
---           html (shortyCreated resp shawty)
---         Nothing -> text (shortyAintUri uri)
---     get "/:short" $ do
---       short <- param "short"
---       uri <- liftIO (getURI rConn short)
---       case uri of
---         Left reply -> text (TL.pack (show reply))
---         Right mbBS -> case mbBS of
---           Nothing -> text "uri not found"
---           Just bs -> html (shortyFound tbs)
---             where tbs :: TL.Text
---                   tbs = TL.fromStrict (decodeUtf8 bs)
-
 main :: IO ()
 main = do
   rConn <- R.connect R.defaultConnectInfo
-  scotty 3000 $ runReaderT app rConn 
--- main = do
---   rConn <- R.connect R.defaultConnectInfo
---   scotty 3000 (app rConn)
-
+  scotty 3000 $ runReaderT app rConn
