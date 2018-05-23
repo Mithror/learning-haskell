@@ -11,10 +11,10 @@ instance Functor (Moi s) where
 instance Applicative (Moi s) where
     pure :: a -> Moi s a
     pure a = Moi $ \s -> (a, s)
-    
+
     (<*>) :: Moi s (a -> b) -> Moi s a -> Moi s b
-    (Moi f) <*> (Moi g) = Moi $ \s -> let (a, s') = g s
-                                          (f', s'') = f s'
+    (Moi f) <*> (Moi g) = Moi $ \s -> let (f', s') = f s
+                                          (a, s'') = g s'
                                       in (f' a, s'')
 
 instance Monad (Moi s) where

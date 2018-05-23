@@ -6,8 +6,8 @@ instance Functor (State s) where
                              in (f a, s')
 instance Applicative (State s) where
     pure a = State $ \s -> (a, s)
-    (State f) <*> k = State $ \s -> let (a, s') = runState k s
-                                        (f', s'') = f s'
+    (State f) <*> k = State $ \s -> let (f', s') = f s
+                                        (a, s'') = runState k s'
                                     in (f' a, s'')
 instance Monad (State s) where
     return = pure
