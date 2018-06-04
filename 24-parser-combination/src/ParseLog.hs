@@ -3,15 +3,18 @@
 
 module ParseLog where
 
-import Control.Applicative ((<|>), liftA2)
+import Control.Applicative ((<|>), liftA2, liftA3)
 import Data.Monoid ((<>))
 import Text.Trifecta
 import Data.Time.Format
 import Data.Time
 import Data.List (intersperse)
 import Text.RawString.QQ
-
+import Text.Parser.Token
+import Control.Monad (replicateM)
+import Data.Maybe
 import Test.QuickCheck
+import Data.Char
 
 data LogEntry = LogEntry TimeOfDay String deriving Eq
 instance Show LogEntry where
@@ -20,10 +23,13 @@ instance Show LogEntry where
         in time ++ " " ++ s
 instance Arbitrary LogEntry where
     arbitrary = do
-        tod <- TimeOfDay <$> choose (0,23) <*> choose (0,59) <*> pure 0
-        s <- liftA2 (++) 
+        tod <- liftA3 TimeOfDay
+                      (choose (0,23))
+                      (choose (0,59))
+                      (pure 0)
+        s <- liftA2 (++)
                     arbitrary
-                    (oneof [((++) "--") <$> arbitrary, arbitrary]) 
+                    (oneof [((++) "--") <$> arbitrary, arbitrary])
         return $ LogEntry tod (filter (\c -> c /= '\n') s)
 
 data DayEntry = DayEntry Day [LogEntry] deriving Eq
@@ -49,11 +55,11 @@ instance Arbitrary Log where
 countTimeSpentDay :: [LogEntry] -> DiffTime
 countTimeSpentDay [] = 0
 countTimeSpentDay (_:[]) = 0
-countTimeSpentDay (x:y:xs) = 
+countTimeSpentDay (x:y:xs) =
     let (LogEntry t1 _) = x
         (LogEntry t2 _) = y
-    in   (timeOfDayToTime t2) 
-       - (timeOfDayToTime t1) 
+    in   (timeOfDayToTime t2)
+       - (timeOfDayToTime t1)
        + (countTimeSpentDay (y:xs))
 
 countDay :: DayEntry -> DiffTime
@@ -62,64 +68,78 @@ countDay (DayEntry _ e) = countTimeSpentDay e
 countTime :: Log -> DiffTime
 countTime (Log ds) = sum $ map countDay ds
 
-skipBlankLines :: Parser ()
-skipBlankLines =
-    skipMany $ (skipWhiteSpace >> skipComment >> newline) <|>
-            (skipWhiteSpace >> newline)
+skipComment :: (Monad m, TokenParsing m) => m ()
+skipComment = token $ do
+    string "--"
+    manyTill anyChar $ try newline
+    return ()
 
-skipComment :: Parser ()
-skipComment = skipMany $ do
-    _ <- count 2 $ char '-'
-    skipMany $ notChar '\n'
+myToken :: (Monad m, TokenParsing m) => m a -> m a
+myToken p = token p <* (token $ skipSome skipComment <|> pure ())
 
-skipWhiteSpace :: Parser ()
-skipWhiteSpace = skipMany $ oneOf "\t "
+-- token :: m a -> m a
+-- token p = p <* (someSpace <|> pure ())
 
-removeComment :: String -> String
-removeComment [] = []
-removeComment (x:xs) = go "" x False xs
-    where go s '-' True _ = s -- skip comment
-          go s '-' False [] = s ++ "-" -- ended with '-'
-          go s c _ [] = s ++ [c] -- ended without comment
-          go s '-' False (y:ys) = go s y True ys -- possible start of comment
-          go s c _ (y:ys) = go (s ++ [c]) y False ys
+parseHour :: Parser String
+parseHour = case1 <|> case2
+    where case1 = sequenceA [oneOf "01", digit]
+          case2 = sequenceA [char '2', oneOf "0123"]
 
+parseMinutes :: Parser String
+parseMinutes = sequenceA [ oneOf "012345", digit]
 
-parseLogEntry :: Parser LogEntry
-parseLogEntry = do
-    t <- count 2 digit <> string ":" <> count 2 digit 
-    let m = parseTimeM True defaultTimeLocale "%H:%M" t
-    timeOfDay <- case m of
+parseTimeOfDay :: Parser TimeOfDay
+parseTimeOfDay = do
+    timeString <- parseHour <> string ":" <> parseMinutes
+    case parseTimeM True defaultTimeLocale "%H:%M" timeString of
         Just time -> return time
         Nothing -> unexpected "Incorrect time format"
-    _ <- space
-    s <- some $ notChar '\n'
-    _ <- newline
-    return $ LogEntry timeOfDay (removeComment s)
 
-parseDayEntry :: Parser DayEntry
-parseDayEntry = do
-    _ <- char '#'
-    _ <- space
-    d <- some digit <> string "-" 
-           <> count 2 digit <> string "-" 
-           <> count 2 digit
-    let m = parseTimeM True defaultTimeLocale "%Y-%m-%d" d
-    day <- case m of
+parseLogEntry :: Parser LogEntry
+parseLogEntry = myToken $ do
+    tod <- parseTimeOfDay
+    space
+    s <- manyTill anyChar ((newline >> return ()) <|> skipComment)
+    return $ LogEntry tod s
+
+parseYear :: Parser String
+parseYear = count 4 digit
+
+-- This is actually also a cool way to do this, where the year
+-- can consist up to 4 digits instead of 4, but this is not in the spirit of
+-- the exercise I believe. year should be in "YYYY" format.
+-- parseYear = liftA2 (:) digit (catMaybes <$> replicateM 3 d)
+--     where d = try $ optional digit
+
+parseMonth :: Parser String
+parseMonth = case1 <|> case2
+    where case1 = sequenceA [ char '0', digit ]
+          case2 = sequenceA [ char '1', oneOf "012"]
+
+parseDay :: Parser String
+parseDay = case1 <|> case2
+    where case1 = sequenceA [ oneOf "012", digit ]
+          case2 = sequenceA [ char '3', oneOf "01" ]
+
+parseDay' :: Parser Day
+parseDay' = do
+    day <- parseYear <> string "-" <> parseMonth <> string "-" <> parseDay
+    case parseTimeM True defaultTimeLocale "%Y-%m-%d" day of
         Just day' -> return day'
         Nothing -> unexpected "Incorrect day format"
-    -- only thing allowed after day is whitespace and comments
-    skipWhiteSpace
-    skipComment
-    _ <- newline
-    -- Followed by a list of paserLogEntries
+
+parseDayEntry :: Parser DayEntry
+parseDayEntry = myToken $ do
+    char '#'
+    space
+    day <- myToken $ parseDay'
     logEntries <- many parseLogEntry
-    skipBlankLines
-    return $ DayEntry day logEntries 
+    return $ DayEntry day logEntries
 
 parseLog :: Parser Log
 parseLog  = do
-    skipBlankLines
+    whiteSpace
+    skipMany skipComment
     dayEntries <- many parseDayEntry
     return $ Log dayEntries
 
@@ -161,7 +181,7 @@ genDayLine = do
     day <- ModifiedJulianDay <$> (2000 +) <$> arbitrary
     let day_string = formatTime defaultTimeLocale "%Y-%m-%d" day
     oneof [ return $ "# " ++ day_string ++ "\t \n"
-          , return $ "# " ++ day_string ++ "\t -- comment!\n" ] 
+          , return $ "# " ++ day_string ++ "\t -- comment!\n" ]
 genLogEntry :: Gen String
 genLogEntry = do
     time <- TimeOfDay <$> choose (0,23) <*> choose (0,59) <*> pure 0

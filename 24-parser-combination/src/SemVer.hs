@@ -19,21 +19,8 @@ data SemVer = SemVer Major Minor Patch Release Metadata deriving (Eq, Show)
 -- Probably nicer ways of doing this?
 instance Ord SemVer where
     compare (SemVer major minor patch _ _)
-            (SemVer major' minor' patch' _ _) =
-    --    case compare major major' of
-    --     GT -> GT
-    --     LT -> LT
-    --     EQ ->
-    --         case compare minor minor' of
-    --             GT -> GT
-    --             LT -> LT
-    --             EQ ->
-    --                 case compare patch patch' of
-    --                     GT -> GT
-    --                     LT -> LT
-    --                     EQ -> EQ 
-        mconcat $ 
-        zipWith compare [major, minor, patch] [major', minor', patch']
+            (SemVer major' minor' patch' _ _) = mconcat $
+                zipWith compare [major, minor, patch] [major', minor', patch']
 
 validChars :: [Char]
 validChars = ['0'..'9'] ++ ['a'..'z'] ++ ['A'..'Z']
@@ -118,7 +105,7 @@ main = hspec $ do
                 r = maybeSuccess m
             print m
             r `shouldBe` Nothing
-    
+
     describe "Release parsing" $ do
         it "can parse release" $ do
             let m = parseString parseRelease mempty "-123.abc.123abc"
@@ -142,7 +129,7 @@ main = hspec $ do
                 r = maybeSuccess m
             print m
             r `shouldBe` Nothing
-    
+
     describe "SemVer parsing" $ do
         it "can parse just version" $ do
             let m = parseString parseSemVer mempty "1.2.3"
@@ -194,7 +181,7 @@ main = hspec $ do
                 r = maybeSuccess m
             print m
             r `shouldBe` Just (SemVer 1 2 3 [NOSS "abc"] [NOSI 123])
-    
+
     describe "Comparing SemVer" $ do
         it "Bigger Major" $ do
             let a = SemVer 2 1 0 [] []

@@ -10,8 +10,8 @@ parseDigit = oneOf ['0'..'9']
 
 base10Integer :: Parser Integer
 base10Integer = do
-    xs <- some $ (\a -> read (a:"")) <$> parseDigit
-    return $ 
+    xs <- (fmap . fmap) (read . (:[])) $ some parseDigit
+    return $
       fst $ foldr (\a (b,i) -> (a * i + b, i*10)) (0,1) xs
 
 parseSign :: Parser Char
@@ -74,7 +74,7 @@ main = hspec $ do
             let m = parseString parseDigit mempty "a"
                 r = maybeSuccess m
             r `shouldBe` Nothing
-    
+
     describe "Parse Integer" $ do
         it "can parse single digit" $ do
             let m = parseString base10Integer mempty "3"
@@ -88,7 +88,7 @@ main = hspec $ do
             let m = parseString base10Integer mempty "x23"
                 r = maybeSuccess m
             r `shouldBe` Nothing
-    
+
     describe "Parse Sign" $ do
         it "Minus" $ do
             let m = parseString parseSign mempty "-"
@@ -102,7 +102,7 @@ main = hspec $ do
             let m = parseString parseSign mempty "1"
                 r = maybeSuccess m
             r `shouldBe` Nothing
-    
+
     describe "Parse Positive Integer" $ do
         it "positive without +" $ do
             let m = parseString base10Integer' mempty "123abc"
@@ -112,10 +112,9 @@ main = hspec $ do
             let m = parseString base10Integer' mempty "+123abc"
                 r = maybeSuccess m
             r `shouldBe` Just 123
-    
+
     describe "Parse negative integer" $ do
         it "negative" $ do
             let m = parseString base10Integer' mempty "-123abc"
                 r = maybeSuccess m
             r `shouldBe` Just (-123)
-    
