@@ -16,6 +16,11 @@ newtype Compose f g a = Compose { getCompose :: f (g a) } deriving (Eq, Show)
 instance (Functor f, Functor g) => Functor (Compose f g) where
     fmap f (Compose fga) = Compose $ (fmap . fmap) f fga
 
+myApply :: (Applicative f, Applicative g)
+        => Compose f g (a -> b) -> Compose f g a -> Compose f g b
+myApply (Compose h) (Compose c) =
+    Compose $ (fmap (<*>) h) <*> c
+
 instance (Applicative f, Applicative g) => Applicative (Compose f g) where
     pure :: a -> Compose f g a
     pure a = Compose $ pure (pure a)
@@ -39,7 +44,7 @@ instance (Applicative f, Applicative g) => Applicative (Compose f g) where
     -- Which brings us to:
     -- :: (<*>) f a = (fmap (<*>) f) <*> a
     (<*>) :: Compose f g (a -> b) -> Compose f g a -> Compose f g b
-    (Compose h) <*> (Compose c) = Compose $ 
+    (Compose h) <*> (Compose c) = Compose $
         (fmap (<*>) h) <*> c
 
 instance (Foldable f, Foldable g) => Foldable (Compose f g) where
@@ -53,7 +58,7 @@ instance (Foldable f, Foldable g) => Foldable (Compose f g) where
 -- (foldMap . foldMap) :: (a -> m) -> f (g a) -> m
 
 instance (Traversable f, Traversable g) => Traversable (Compose f g) where
-    traverse :: Applicative f' => (a -> f' b) -> Compose f g a 
+    traverse :: Applicative f' => (a -> f' b) -> Compose f g a
                                             -> f' (Compose f g b)
     traverse f (Compose fga) = Compose <$> ((traverse . traverse) f fga)
 
