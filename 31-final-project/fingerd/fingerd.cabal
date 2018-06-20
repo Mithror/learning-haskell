@@ -1,0 +1,69 @@
+name:                fingerd
+version:             0.1.0.0
+synopsis:            Simple project template
+description:         Please see README.md
+homepage:            https://github.com/Mithror/fingerd#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Gaël Depreeuw
+maintainer:          gael.depreeuw@gmail.com
+copyright:           Copyright (c) 2018 Gaël Depreeuw
+category:            daemon
+build-type:          Simple
+cabal-version:       >=1.10
+extra-source-files:  README.md
+
+library
+  hs-source-dirs:     lib
+  exposed-modules:    UserDB
+  default-language:   Haskell2010
+  build-depends:      base >= 4.7 && < 5
+                    , bytestring
+                    , network
+                    , raw-strings-qq
+                    , sqlite-simple
+                    , text
+                    , aeson
+
+-- library userdb-internal
+--   hs-source-dirs:     lib
+--   exposed-modules:    UserDB.Internal
+--   default-language:   Haskell2010
+--   build-depends:      base >= 4.7 && < 5
+--                     , bytestring
+--                     , network
+--                     , raw-strings-qq
+--                     , sqlite-simple
+--                     , text
+
+executable debug
+  ghc-options:        -Wall
+  hs-source-dirs:     src
+  main-is:            Debug.hs
+  default-language:   Haskell2010
+  build-depends:      base >= 4.7 && < 5
+                    , network
+
+executable adduser
+  ghc-options:        -Wall
+  hs-source-dirs:     src
+  main-is:            AddUser.hs
+  default-language:   Haskell2010
+  build-depends:      base >= 4.7 && < 5
+                    , sqlite-simple
+                    , text
+                    , fingerd
+
+executable fingerd
+  ghc-options:         -Wall
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , bytestring
+                     , network
+                     , raw-strings-qq
+                     , sqlite-simple
+                     , text
+                     , fingerd
+                     , aeson
