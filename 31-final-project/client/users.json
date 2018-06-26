@@ -1,0 +1,25 @@
+{
+    "actions" : [
+        {
+            "action" : "add",
+            "params" :{
+                "username" : "john",
+                "shell" : "/bin/sh",
+                "homeDirectory" : "/home/john/",
+                "realName" : "John Doe",
+                "phone" : "555-123-4567"
+            }
+        },
+        {
+           "action" : "update",
+           "params" : {
+             "username" : "foo",
+             "realName" : "Foo Bar"
+           }
+        },
+        {
+           "action" : "delete",
+           "params" : "john"
+        }
+    ]
+}
