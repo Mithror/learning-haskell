@@ -1,21 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
--- {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module UserDB
-    ( User(..), getSingleUser, getAllUsers, addUser, updateUser)
+    ( User(..), getSingleUser, getAllUsers, addUser, updateUser,
+      deleteUser, createDatabase)
     where
 
 import Control.Exception
 import Data.Text (Text)
--- import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Database.SQLite.Simple hiding (close)
 import Database.SQLite.Simple as SQLite
--- import Database.SQLite.Simple.Types
 import Data.Typeable
--- import Text.RawString.QQ
 import Data.Maybe (catMaybes)
 import Data.List (intersperse)
 import Data.String (fromString)
+import Text.RawString.QQ
 import Data.Aeson
 
 data User =
@@ -48,17 +47,22 @@ instance FromJSON User where
         <*> v .: "realName"
         <*> v .: "phone"
 
--- createUsers :: Query
--- createUsers = [r|
--- CREATE TABLE IF NOT EXISTS users
---     (id INTEGER PRIMARY KEY AUTOINCREMENT,
---     username TEXT UNIQUE,
---     shell TEXT, homeDirectory TEXT,
---     realName TEXT, phone TEXT)
--- |]
+createUsers :: Query
+createUsers = [r|
+CREATE TABLE IF NOT EXISTS users
+    (id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    shell TEXT, homeDirectory TEXT,
+    realName TEXT, phone TEXT)
+|]
 
 insertUser :: Query
-insertUser = "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)"
+insertUser = "INSERT INTO users\
+             \ (username, shell, homeDirectory, realName, phone) \
+             \ VALUES (?, ?, ?, ?, ?)"
+
+removeUser :: Query
+removeUser = "DELETE from users where username = ?"
 
 allUsers :: Query
 allUsers = "SELECT * from users"
@@ -85,18 +89,28 @@ addUser u = do
     conn <- getConnection
     n <- query conn hasUser (Only $ username u) :: IO [Only Integer]
     b <- case n of
-        [] -> (execute conn insertUser $ toRow u) >> return True
+        [] -> (execute conn insertUser $ (tail $ toRow u)) >> return True
         _ -> return False
     rows <- query_ conn allUsers
     mapM_ print (rows :: [User])
     SQLite.close conn
     return b
 
--- createDatabase :: IO ()
--- createDatabase = do
---     conn <- getConnection
---     execute_ conn createUsers
---     SQLite.close conn
+deleteUser :: Text -> IO Bool
+deleteUser u = do
+    conn <- getConnection
+    n <- query conn hasUser (Only u) :: IO [Only Integer]
+    b <- case n of
+        [] -> return False
+        _ -> (execute conn removeUser $ (Only u)) >> return True
+    SQLite.close conn
+    return b
+
+createDatabase :: IO ()
+createDatabase = do
+    conn <- getConnection
+    execute_ conn createUsers
+    SQLite.close conn
 
 getConnection :: IO Connection
 getConnection = open "finger.db"
@@ -131,10 +145,10 @@ updateUser name sh hDir rName ph = do
     case newData of
         [] -> return True
         ys -> do
-            let pairs = fmap (\(a,b) -> a ++ "=\"" ++ b ++ "\"" ) ys
-                part = concat $ intersperse "," pairs
+            let pairs' = fmap (\(a,b) -> a ++ "=\"" ++ b ++ "\"" ) ys
+                part = concat $ intersperse "," pairs'
                 full = "update users set " ++ part
-                        ++ " where username = \"" ++ name ++ "\""
+                        ++ " where username = ?"
             conn <- getConnection
             n <- query conn hasUser (Only name) :: IO [Only Integer]
             b <- case n of
@@ -142,6 +156,3 @@ updateUser name sh hDir rName ph = do
                 _ ->  execute conn (fromString full) (Only name) >> return True
             SQLite.close conn
             return b
-
--- updateU :: User -> IO ()
--- update
